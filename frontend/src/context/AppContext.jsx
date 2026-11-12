@@ -182,48 +182,43 @@ export function AppProvider({ children }) {
 
   // ── Admin: add seats to a section ──────────────────────────
   /**
-   * addSeatsToArea(areaId, tableId, count)
-   * Appends `count` new vacant seats to the specified table.
-   * Also extends the area's `tables[x].seats` count so SeatGrid re-renders correctly.
+   * addSeatsToArea(areaId, tableId, seatLabels)
+   * seatLabels: string[]  — exact labels for the new seats, e.g. ["A33","A34"]
+   * Appends new vacant seats to the specified table and bumps the area seat count.
+   * Silently skips any label that already exists in the seat list.
    */
   const addSeatsToArea = useCallback(
-    (areaId, tableId, count) => {
-      if (count < 1) return
+    (areaId, tableId, seatLabels) => {
+      if (!seatLabels?.length) return
 
       setAreas((prevAreas) => {
+        const added = seatLabels.length
+
         const next = prevAreas.map((area) => {
           if (area.id !== areaId) return area
           return {
             ...area,
             tables: area.tables.map((table) =>
               table.id === tableId
-                ? { ...table, seats: table.seats + count }
+                ? { ...table, seats: table.seats + added }
                 : table,
             ),
-            count: area.count + count,
+            count: area.count + added,
           }
         })
 
-        // Also add blank seats to the seat list right now
         setSeats((prevSeats) => {
-          const area = next.find((a) => a.id === areaId)
-          if (!area) return prevSeats
-
-          // Count existing seats for this area to get the next index
-          const existingCount = prevSeats.filter((s) => s.areaId === areaId).length
-          const newSeats = []
-          for (let i = 0; i < count; i++) {
-            const idx = existingCount + i + 1
-            const label = `${area.prefix}${String(idx).padStart(2, '0')}`
-            newSeats.push({
+          const existingIds = new Set(prevSeats.map((s) => s.id))
+          const newSeats = seatLabels
+            .filter((label) => !existingIds.has(label))
+            .map((label) => ({
               id: label,
               label,
               areaId,
               tableId,
               status: 'vacant',
               session: null,
-            })
-          }
+            }))
           return [...prevSeats, ...newSeats]
         })
 
