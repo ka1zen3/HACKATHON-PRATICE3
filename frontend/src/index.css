@@ -1,54 +1,60 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
 @theme {
+  /* ── Type ─────────────────────────────────────────────────── */
   --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
-  --color-ink: #14201a;
-  --color-ink-soft: #5c6b60;
-  --color-canvas: #ffffff;
-  --color-parchment: #f5f5eb;
-  --color-signal: #4ade80;
-  --color-signal-bright: #22c55e;
-  --color-signal-deep: #15803d;
-  --color-signal-wash: #e9f9ee;
-  --color-signal-line: #b7e4c3;
-  --color-ash: #d5ddd3;
-  --color-charcoal: #1b2a20;
-  --color-stone: #94a296;
-  --color-smoke: #c3ccc3;
-  --color-amber: #b45309;
-  --color-amber-wash: #fdf3e3;
-  --color-danger: #b42318;
-  --color-danger-wash: #fef3f2;
+  /* ── Palette (design2.md "Perk" system, library edition) ──── */
+  --color-ink:          #14140f;   /* off-black body text */
+  --color-ink-soft:     #6e6e64;   /* graphite — muted text */
+  --color-canvas:       #ffffff;   /* pure white surfaces  */
+  --color-parchment:    #f5f5eb;   /* warm off-white cards */
 
-  --radius-card: 28px;
-  --radius-inner: 18px;
-  --radius-pill: 9999px;
-  --radius-input: 8px;
+  /* Accent — electric lime */
+  --color-lime:         #beff50;
+  --color-lime-deep:    #96cc20;
+  --color-lime-wash:    #f4ffe6;
+  --color-lime-line:    #d4f07c;
 
-  --text-caption: 12px;
-  --text-caption--line-height: 1.33;
-  --text-caption--letter-spacing: 0.04em;
-  --text-body-sm: 14px;
-  --text-body-sm--line-height: 1.45;
-  --text-body: 16px;
-  --text-body--line-height: 1.5;
-  --text-subheading: 22px;
-  --text-subheading--line-height: 1.18;
-  --text-subheading--letter-spacing: -0.02em;
-  --text-heading: 28px;
-  --text-heading--line-height: 1.14;
-  --text-heading--letter-spacing: -0.02em;
-  --text-heading-lg: 60px;
-  --text-heading-lg--line-height: 1;
-  --text-heading-lg--letter-spacing: -0.03em;
-  --text-display: 90px;
-  --text-display--line-height: 0.89;
-  --text-display--letter-spacing: -0.03em;
+  /* Semantic */
+  --color-ash:          #d2d2c8;   /* borders / dividers   */
+  --color-stone:        #919183;   /* placeholder / icons  */
+  --color-smoke:        #b9b9b7;   /* subtle wash          */
+  --color-charcoal:     #30302a;   /* dark island          */
 
-  --animate-rise: rise 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-toast: toast-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-pulse-dot: pulse-dot 2.2s ease-in-out infinite;
+  /* Status */
+  --color-signal:       #4ade80;   /* open / vacant        */
+  --color-signal-bright:#22c55e;
+  --color-signal-deep:  #15803d;
+  --color-signal-wash:  #e9f9ee;
+  --color-signal-line:  #b7e4c3;
+
+  --color-amber:        #b45309;
+  --color-amber-wash:   #fdf3e3;
+  --color-danger:       #b42318;
+  --color-danger-wash:  #fef3f2;
+
+  /* ── Radii ────────────────────────────────────────────────── */
+  --radius-card:        28px;
+  --radius-inner:       18px;
+  --radius-pill:        9999px;
+  --radius-input:       8px;
+
+  /* ── Type scale ───────────────────────────────────────────── */
+  --text-eyebrow:       10px;
+  --text-caption:       12px;
+  --text-body-sm:       14px;
+  --text-body:          16px;
+  --text-subheading:    22px;
+  --text-heading:       28px;
+  --text-heading-lg:    60px;
+  --text-display:       90px;
+
+  /* ── Motion ───────────────────────────────────────────────── */
+  --animate-rise:        rise 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-toast:       toast-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-pulse-dot:   pulse-dot 2.2s ease-in-out infinite;
 }
 
 @utility numeric {
@@ -72,7 +78,7 @@
   }
 
   ::selection {
-    background-color: var(--color-signal);
+    background-color: var(--color-lime);
     color: var(--color-ink);
   }
 
@@ -81,30 +87,21 @@
     outline-offset: 2px;
   }
 
-  * {
-    scrollbar-color: var(--color-ash) transparent;
-    scrollbar-width: thin;
-  }
-
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-
+  /* scrollbar */
+  * { scrollbar-color: var(--color-ash) transparent; scrollbar-width: thin; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-thumb {
     background-color: var(--color-ash);
     border: 3px solid var(--color-canvas);
     border-radius: 9999px;
   }
+  ::-webkit-scrollbar-track { background: transparent; }
 
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
+  /* caret */
+  input, textarea { caret-color: var(--color-ink); }
 
   @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
+    *, *::before, *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
@@ -113,36 +110,23 @@
   }
 }
 
+/* ── Keyframes ────────────────────────────────────────────────── */
 @keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.99);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  from { opacity: 0; transform: translateY(10px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
 }
 
 @keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, 10px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to   { opacity: 1; transform: translate(-50%, 0);    }
 }
 
 @keyframes pulse-dot {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.45;
-    transform: scale(0.82);
-  }
+  0%, 100% { opacity: 1;    transform: scale(1);    }
+  50%       { opacity: 0.45; transform: scale(0.82); }
+}
+
+@keyframes shimmer {
+  from { background-position: 200% center; }
+  to   { background-position: -200% center; }
 }

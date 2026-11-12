@@ -7,6 +7,8 @@ import Session from './pages/Session.jsx'
 import AdminLogin from './pages/admin/AdminLogin.jsx'
 import AdminDashboard from './pages/admin/AdminDashboard.jsx'
 import AdminSessions from './pages/admin/AdminSessions.jsx'
+import AdminStudents from './pages/admin/AdminStudents.jsx'
+import AdminSeats from './pages/admin/AdminSeats.jsx'
 import NotFound from './pages/NotFound.jsx'
 
 function RequireStudent({ children }) {
@@ -72,6 +74,22 @@ function App() {
         element={
           <RequireAdmin>
             <AdminSessions />
+          </RequireAdmin>
+        }
+      />
+      <Route
+        path="/admin/students"
+        element={
+          <RequireAdmin>
+            <AdminStudents />
+          </RequireAdmin>
+        }
+      />
+      <Route
+        path="/admin/seats"
+        element={
+          <RequireAdmin>
+            <AdminSeats />
           </RequireAdmin>
         }
       />

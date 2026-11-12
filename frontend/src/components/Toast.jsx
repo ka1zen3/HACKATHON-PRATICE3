@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { X } from 'lucide-react'
+import { RiCloseLine } from 'react-icons/ri'
 
 export function Toast({ message, action, onClose, duration = 4200 }) {
   useEffect(() => {
@@ -25,7 +25,7 @@ export function Toast({ message, action, onClose, duration = 4200 }) {
         aria-label="Dismiss message"
         className="grid size-7 shrink-0 place-items-center rounded-full text-parchment/60 transition-colors hover:bg-parchment/10 hover:text-parchment focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
       >
-        <X className="size-3.5" aria-hidden="true" />
+        <RiCloseLine size={14} aria-hidden="true" />
       </button>
     </div>
   )
