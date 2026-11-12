@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, ListFilter, RotateCcw, Search, X } from 'lucide-react'
+import { RiArrowRightSLine, RiListCheck2, RiRefreshLine, RiSearchLine, RiCloseLine } from 'react-icons/ri'
 import { AdminLayout } from '../../components/AdminLayout.jsx'
 import { Button } from '../../components/Button.jsx'
 import { EmptyState } from '../../components/EmptyState.jsx'
@@ -99,7 +99,7 @@ export default function AdminSessions() {
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={handleReset}>
-          <RotateCcw className="size-3.5" aria-hidden="true" />
+          <RiRefreshLine size={14} aria-hidden="true" />
           Reset demo
         </Button>
       </div>
@@ -109,8 +109,9 @@ export default function AdminSessions() {
           <label htmlFor="session-search" className="sr-only">
             Search sessions
           </label>
-          <Search
-            className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-stone"
+          <RiSearchLine
+            size={16}
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone"
             aria-hidden="true"
           />
           <input
@@ -128,7 +129,7 @@ export default function AdminSessions() {
               aria-label="Clear search"
               className="absolute right-2 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-ink-soft transition-colors hover:bg-ash hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
             >
-              <X className="size-3.5" aria-hidden="true" />
+              <RiCloseLine size={14} aria-hidden="true" />
             </button>
           )}
         </div>
@@ -162,7 +163,7 @@ export default function AdminSessions() {
       <section className="mt-4 overflow-hidden rounded-card border border-ash bg-canvas">
         {filteredRows.length === 0 ? (
           <EmptyState
-            icon={ListFilter}
+            icon={RiListCheck2}
             title="No sessions match"
             description="Try a different search or filter. Released seats drop off this list immediately."
             action={
@@ -232,7 +233,7 @@ export default function AdminSessions() {
                             aria-label={`Review seat ${seat.label}`}
                           >
                             Review
-                            <ChevronRight className="size-3.5" aria-hidden="true" />
+                            <RiArrowRightSLine size={14} aria-hidden="true" />
                           </Button>
                         </td>
                       </tr>
@@ -278,7 +279,7 @@ export default function AdminSessions() {
                       </span>
                       <span className="inline-flex items-center gap-1.5">
                         <span className="numeric">{formatShort(duration)}</span>
-                        <ChevronRight className="size-3.5" aria-hidden="true" />
+                        <RiArrowRightSLine size={14} aria-hidden="true" />
                       </span>
                     </div>
                   </button>

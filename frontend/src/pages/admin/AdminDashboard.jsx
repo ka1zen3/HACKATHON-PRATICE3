@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, ChevronRight, RotateCcw } from 'lucide-react'
+import { RiCheckLine, RiArrowRightSLine, RiRefreshLine } from 'react-icons/ri'
 import { AdminLayout } from '../../components/AdminLayout.jsx'
 import { AreaFilter } from '../../components/AreaFilter.jsx'
 import { Button } from '../../components/Button.jsx'
@@ -86,7 +86,7 @@ export default function AdminDashboard() {
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={handleReset}>
-          <RotateCcw className="size-3.5" aria-hidden="true" />
+          <RiRefreshLine size={14} aria-hidden="true" />
           Reset demo
         </Button>
       </div>
@@ -163,7 +163,7 @@ export default function AdminDashboard() {
               {attention.length === 0 ? (
                 <div className="rounded-inner border border-dashed border-ash bg-parchment px-4 py-8 text-center">
                   <span className="mx-auto grid size-9 place-items-center rounded-full bg-signal-wash text-signal-deep">
-                    <Check className="size-4" aria-hidden="true" />
+                    <RiCheckLine size={16} aria-hidden="true" />
                   </span>
                   <p className="mt-3 text-[14px] font-medium">All clear</p>
                   <p className="mt-1 text-[12px] text-ink-soft">
@@ -196,8 +196,9 @@ export default function AdminDashboard() {
                         <StatusPill status={status} pulse={!expired} className="hidden sm:inline-flex">
                           {expired ? 'Expired' : seat.status}
                         </StatusPill>
-                        <ChevronRight
-                          className="size-4 text-stone transition-transform group-hover:translate-x-0.5"
+                        <RiArrowRightSLine
+                          size={16}
+                          className="text-stone transition-transform group-hover:translate-x-0.5"
                           aria-hidden="true"
                         />
                       </span>

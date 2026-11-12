@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef } from 'react'
-import { X } from 'lucide-react'
+import { RiCloseLine } from 'react-icons/ri'
 
 export function Modal({
   open,
@@ -68,7 +68,7 @@ export function Modal({
             aria-label="Close dialog"
             className="grid size-9 shrink-0 place-items-center rounded-full border border-ash bg-canvas text-ink-soft transition-colors hover:border-ink hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
           >
-            <X className="size-4" aria-hidden="true" />
+            <RiCloseLine size={16} aria-hidden="true" />
           </button>
         </div>
 

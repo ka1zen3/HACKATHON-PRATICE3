@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Clock, DoorOpen, UserRound } from 'lucide-react'
+import { RiTimeLine, RiDoorOpenLine, RiUserLine } from 'react-icons/ri'
 import { Button } from './Button.jsx'
 import { Modal } from './Modal.jsx'
 import { StatusPill } from './StatusPill.jsx'
@@ -60,7 +60,7 @@ export function SeatDetailModal({ seat, open, onClose, onForceTimeOut }) {
                 Close
               </Button>
               <Button variant="danger" onClick={() => setConfirming(true)}>
-                <DoorOpen className="size-4" aria-hidden="true" />
+                <RiDoorOpenLine size={16} aria-hidden="true" />
                 Force time-out
               </Button>
             </>
@@ -91,7 +91,7 @@ export function SeatDetailModal({ seat, open, onClose, onForceTimeOut }) {
         <dl className="mt-5 space-y-3 text-sm">
           <div className="flex items-center justify-between gap-4">
             <dt className="inline-flex items-center gap-2 text-ink-soft">
-              <UserRound className="size-4" aria-hidden="true" />
+              <RiUserLine size={16} aria-hidden="true" />
               Student
             </dt>
             <dd className="text-right font-medium">{seat.session.studentName}</dd>
@@ -102,7 +102,7 @@ export function SeatDetailModal({ seat, open, onClose, onForceTimeOut }) {
           </div>
           <div className="flex items-center justify-between gap-4">
             <dt className="inline-flex items-center gap-2 text-ink-soft">
-              <Clock className="size-4" aria-hidden="true" />
+              <RiTimeLine size={16} aria-hidden="true" />
               {seat.status === 'pending' ? 'Held since' : 'Started'}
             </dt>
             <dd className="numeric text-right">
