@@ -26,12 +26,12 @@ export default function AdminLogin() {
     return <Navigate to="/admin/dashboard" replace />
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
-    const ok = adminLogin(username, password)
+    const result = await adminLogin(username, password)
 
-    if (!ok) {
-      setError('That username and password did not match. Try the demo credentials below.')
+    if (!result.ok) {
+      setError(result.error ?? 'That username and password did not match. Try the demo credentials below.')
       return
     }
 

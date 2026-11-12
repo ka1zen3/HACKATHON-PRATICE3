@@ -115,12 +115,35 @@ export function AppProvider({ children }) {
   }, [])
 
   // ── Admin auth ──────────────────────────────────────────────
-  const adminLogin = useCallback((username, password) => {
-    const ok =
-      username.trim().toLowerCase() === ADMIN_CREDENTIALS.username &&
-      password === ADMIN_CREDENTIALS.password
-    if (ok) setAdminAuthed(true)
-    return ok
+  /**
+   * adminLogin(username, password) → Promise<{ ok: boolean, error?: string }>
+   *
+   * Calls the backend API. Falls back to the local mock credentials when the
+   * backend is unreachable (e.g. during offline demos).
+   */
+  const adminLogin = useCallback(async (username, password) => {
+    try {
+      const res = await fetch('http://localhost:5000/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      })
+
+      if (res.ok) {
+        setAdminAuthed(true)
+        return { ok: true }
+      }
+
+      const json = await res.json().catch(() => ({}))
+      return { ok: false, error: json?.error?.message ?? 'Login failed.' }
+    } catch {
+      // Backend unreachable — fall back to mock credentials so demos still work
+      const ok =
+        username.trim().toLowerCase() === ADMIN_CREDENTIALS.username &&
+        password === ADMIN_CREDENTIALS.password
+      if (ok) setAdminAuthed(true)
+      return { ok, error: ok ? undefined : 'That username and password did not match.' }
+    }
   }, [])
 
   const adminLogout = useCallback(() => setAdminAuthed(false), [])
