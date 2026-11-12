@@ -1,17 +1,18 @@
 /**
- * AdminStudents — bulk student import page.
+ * AdminStudents — bulk student import + live roster page.
  *
- * Supports two input methods:
+ * Import methods:
  *   1. Paste CSV text directly
  *   2. Upload a .csv file
  *
  * Expected CSV columns (header row required):
  *   number, name, program, year
- *   e.g.  23-00174, Jordan Santos, BS Computer Engineering, 3rd year
  *
- * Student numbers are normalised via normalizeStudentNumber before saving.
+ * Roster shows all students with:
+ *   - Search by name or student number
+ *   - Live "currently seated" badge if the student has an active session
  */
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   RiUploadLine,
   RiUserAddLine,
@@ -21,11 +22,14 @@ import {
   RiDownloadLine,
   RiTeamLine,
   RiCloseLine,
+  RiSearchLine,
+  RiArmchairLine,
 } from 'react-icons/ri'
 import { AdminLayout }  from '../../components/AdminLayout.jsx'
 import { Button }       from '../../components/Button.jsx'
 import { StatusPill }   from '../../components/StatusPill.jsx'
 import { useApp }       from '../../context/useApp.js'
+import { useAdminApi }  from '../../hooks/useAdminApi.js'
 import { normalizeStudentNumber } from '../../data/mockData.js'
 
 /* ── CSV parsing ───────────────────────────────────────────── */
@@ -130,13 +134,56 @@ function downloadSample() {
 
 /* ── Main page ─────────────────────────────────────────────── */
 export default function AdminStudents() {
-  const { studentsMap, importStudents } = useApp()
+  const { studentsMap, seats, importStudents: ctxImport } = useApp()
+  const { getStudents, importStudents: apiImport } = useAdminApi()
 
   const [csvText,    setCsvText]    = useState('')
-  const [preview,    setPreview]    = useState(null)   // { rows, errors } | null
-  const [result,     setResult]     = useState(null)   // { added, updated } | null
+  const [preview,    setPreview]    = useState(null)
+  const [result,     setResult]     = useState(null)
   const [parseError, setParseError] = useState([])
+  const [rosterQ,    setRosterQ]    = useState('')
+  // DB-loaded students (array); falls back to studentsMap values when offline
+  const [dbStudents, setDbStudents] = useState(null)
   const fileRef = useRef(null)
+
+  // Load students from the API once on mount
+  useEffect(() => {
+    getStudents().then(({ data }) => {
+      if (data) setDbStudents(data)
+    })
+  }, [getStudents])
+
+  // The authoritative list: DB if available, context otherwise
+  const allStudents = useMemo(() => {
+    if (dbStudents) return dbStudents
+    return Object.values(studentsMap).sort((a, b) => a.name.localeCompare(b.name))
+  }, [dbStudents, studentsMap])
+
+  // Build a live map: studentNumber → seat (if currently seated)
+  const seatedMap = useMemo(() => {
+    const map = {}
+    for (const seat of seats) {
+      if (seat.session?.studentNumber) {
+        map[seat.session.studentNumber] = seat
+      }
+    }
+    return map
+  }, [seats])
+
+  const studentList = useMemo(() => {
+    const q = rosterQ.trim().toLowerCase()
+    return allStudents.filter((s) => {
+      if (!q) return true
+      return (
+        s.name.toLowerCase().includes(q) ||
+        s.number.toLowerCase().includes(q) ||
+        (s.program ?? '').toLowerCase().includes(q)
+      )
+    })
+  }, [allStudents, rosterQ])
+
+  const totalCount  = allStudents.length
+  const seatedCount = Object.keys(seatedMap).length
 
   const handleParse = useCallback(() => {
     const { rows, errors } = parseCSV(csvText)
@@ -158,7 +205,6 @@ export default function AdminStudents() {
       setResult(null)
     }
     reader.readAsText(file)
-    // reset so same file can be re-uploaded
     e.target.value = ''
   }, [])
 
@@ -170,14 +216,25 @@ export default function AdminStudents() {
     })
   }, [])
 
-  const handleImport = useCallback(() => {
+  const handleImport = useCallback(async () => {
     if (!preview?.rows?.length) return
-    const { added, updated } = importStudents(preview.rows)
-    setResult({ added, updated })
+    // Write to DB
+    const { data, error } = await apiImport(preview.rows)
+    if (error) {
+      // Fallback to in-memory import
+      const { added, updated } = ctxImport(preview.rows)
+      setResult({ added, updated, offline: true })
+    } else {
+      ctxImport(preview.rows) // keep context in sync too
+      setResult({ added: data?.count ?? preview.rows.length, updated: 0 })
+      // Refresh DB roster
+      const { data: fresh } = await getStudents()
+      if (fresh) setDbStudents(fresh)
+    }
     setPreview(null)
     setCsvText('')
     setParseError([])
-  }, [preview, importStudents])
+  }, [preview, apiImport, ctxImport, getStudents])
 
   const handleClear = () => {
     setCsvText('')
@@ -185,8 +242,6 @@ export default function AdminStudents() {
     setResult(null)
     setParseError([])
   }
-
-  const studentList = Object.values(studentsMap).sort((a, b) => a.name.localeCompare(b.name))
 
   return (
     <AdminLayout>
@@ -201,7 +256,7 @@ export default function AdminStudents() {
             Student records
           </h1>
           <p className="mt-2 max-w-[54ch] text-sm leading-relaxed text-ink-soft">
-            {studentList.length} students loaded. Import a CSV to add or update records.
+            {totalCount} students loaded · {seatedCount} currently seated. Import a CSV to add or update records.
           </p>
         </div>
         <button
@@ -219,7 +274,11 @@ export default function AdminStudents() {
         <section className="rounded-card border border-ash bg-canvas p-5 sm:p-6">
           <h2 className="text-[17px] font-semibold tracking-[-0.01em]">Bulk import</h2>
           <p className="mt-1 text-[12px] text-ink-soft">
-            Paste CSV text or upload a file. Required columns: <code className="rounded bg-parchment px-1">number</code>, <code className="rounded bg-parchment px-1">name</code>. Optional: <code className="rounded bg-parchment px-1">program</code>, <code className="rounded bg-parchment px-1">year</code>.
+            Paste CSV text or upload a file. Required columns:{' '}
+            <code className="rounded bg-parchment px-1">number</code>,{' '}
+            <code className="rounded bg-parchment px-1">name</code>. Optional:{' '}
+            <code className="rounded bg-parchment px-1">program</code>,{' '}
+            <code className="rounded bg-parchment px-1">year</code>.
           </p>
 
           {/* Success result */}
@@ -230,6 +289,7 @@ export default function AdminStudents() {
                 <p className="font-semibold text-signal-deep">Import complete</p>
                 <p className="mt-0.5 text-ink-soft">
                   {result.added} added · {result.updated} updated
+                  {result.offline && ' (saved locally — backend offline)'}
                 </p>
               </div>
               <button type="button" onClick={() => setResult(null)} className="ml-auto text-stone hover:text-ink">
@@ -323,20 +383,77 @@ export default function AdminStudents() {
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-[15px] font-semibold">Current roster</h2>
               <span className="numeric rounded-pill border border-ash bg-parchment px-2.5 py-1 text-[11px] font-semibold">
-                {studentList.length}
+                {totalCount}
               </span>
             </div>
-            <ul className="mt-4 max-h-[520px] divide-y divide-ash overflow-y-auto">
-              {studentList.map((s) => (
-                <li key={s.number} className="flex items-center justify-between gap-3 py-2.5">
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold">{s.name}</p>
-                    <p className="numeric text-[11px] text-ink-soft">{s.number}</p>
-                  </div>
-                  <span className="shrink-0 text-[11px] text-stone">{s.year || '—'}</span>
+
+            {/* Search */}
+            <div className="relative mt-3">
+              <label htmlFor="roster-search" className="sr-only">Search students</label>
+              <RiSearchLine
+                size={15}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone"
+                aria-hidden="true"
+              />
+              <input
+                id="roster-search"
+                type="search"
+                value={rosterQ}
+                onChange={(e) => setRosterQ(e.target.value)}
+                placeholder="Name, number, or program"
+                className="h-9 w-full rounded-input border border-ash bg-parchment pl-8 pr-8 text-[12px] text-ink placeholder:text-stone focus:border-signal-deep focus:outline-none focus:ring-2 focus:ring-signal/40"
+              />
+              {rosterQ && (
+                <button
+                  type="button"
+                  onClick={() => setRosterQ('')}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded-full text-stone hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink"
+                >
+                  <RiCloseLine size={12} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+
+            {/* List */}
+            <ul className="mt-3 max-h-[520px] divide-y divide-ash overflow-y-auto">
+              {studentList.length === 0 ? (
+                <li className="py-8 text-center text-[12px] text-ink-soft">
+                  No students match &ldquo;{rosterQ}&rdquo;
                 </li>
-              ))}
+              ) : (
+                studentList.map((s) => {
+                  const activeSeat = seatedMap[s.number]
+                  return (
+                    <li key={s.number} className="flex items-center justify-between gap-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-semibold">{s.name}</p>
+                        <p className="numeric text-[11px] text-ink-soft">{s.number}</p>
+                        {s.program && (
+                          <p className="truncate text-[11px] text-stone">{s.program}</p>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        {activeSeat ? (
+                          <span className="inline-flex items-center gap-1 rounded-pill border border-signal-line bg-signal-wash px-2 py-0.5 text-[10px] font-semibold text-signal-deep">
+                            <RiArmchairLine size={11} aria-hidden="true" />
+                            {activeSeat.label}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-stone">{s.year || '—'}</span>
+                        )}
+                      </div>
+                    </li>
+                  )
+                })
+              )}
             </ul>
+
+            {rosterQ && (
+              <p className="mt-2 text-[11px] text-ink-soft">
+                {studentList.length} of {totalCount} shown
+              </p>
+            )}
           </div>
         </aside>
       </div>
