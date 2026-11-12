@@ -3,13 +3,16 @@ import { Link } from 'react-router-dom'
 function SeatMark({ className = '' }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      {/* seat back */}
       <path
         d="M7 4.5v8.25a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4.5"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
       />
+      {/* seat bar */}
       <path d="M9 10.5h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      {/* legs */}
       <path
         d="M8 17.5v2M16 17.5v2M6.5 14.75h11"
         stroke="currentColor"
@@ -21,9 +24,9 @@ function SeatMark({ className = '' }) {
 }
 
 const TONES = {
-  default: { mark: 'bg-signal', glyph: 'text-ink', word: 'text-ink' },
-  onGreen: { mark: 'bg-ink', glyph: 'text-signal', word: 'text-ink' },
-  onDark: { mark: 'bg-signal', glyph: 'text-ink', word: 'text-parchment' },
+  default: { mark: 'bg-lime',    glyph: 'text-ink',      word: 'text-ink' },
+  onGreen: { mark: 'bg-ink',     glyph: 'text-lime',     word: 'text-ink' },
+  onDark:  { mark: 'bg-lime',    glyph: 'text-ink',      word: 'text-parchment' },
 }
 
 export function Logo({ to = '/', tone = 'default', showWord = true, className = '' }) {
@@ -38,7 +41,7 @@ export function Logo({ to = '/', tone = 'default', showWord = true, className = 
         <SeatMark className={`size-5 ${palette.glyph}`} />
       </span>
       {showWord && (
-        <span className={`text-[19px] font-medium tracking-[-0.03em] ${palette.word}`}>
+        <span className={`text-[19px] font-bold tracking-[-0.03em] ${palette.word}`}>
           SeatSync
         </span>
       )}

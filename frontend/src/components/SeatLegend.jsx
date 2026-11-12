@@ -1,8 +1,8 @@
 const LEGEND = [
-  { label: 'Open', className: 'border-signal-line bg-signal-wash' },
-  { label: 'Held', className: 'border-dashed border-signal-deep bg-canvas' },
+  { label: 'Open',   className: 'border-signal-line  bg-signal-wash' },
+  { label: 'Held',   className: 'border-dashed border-signal-deep bg-canvas' },
   { label: 'In use', className: 'border-ash bg-parchment' },
-  { label: 'Overdue', className: 'border-amber/30 bg-amber-wash' },
+  { label: 'Overdue',className: 'border-amber/30 bg-amber-wash' },
 ]
 
 export function SeatLegend({ compact = false, className = '' }) {
@@ -12,11 +12,16 @@ export function SeatLegend({ compact = false, className = '' }) {
     >
       {LEGEND.map((item) => (
         <span key={item.label} className="inline-flex items-center gap-1.5">
-          <span className={`size-3 rounded-[4px] border ${item.className}`} aria-hidden="true" />
-          {!compact && item.label}
+          <span
+            className={`size-3 rounded-[4px] border ${item.className}`}
+            aria-hidden="true"
+          />
+          {item.label}
         </span>
       ))}
-      {!compact && <span className="text-[11px] text-ink-soft">Tap a seat for details</span>}
+      {!compact && (
+        <span className="text-[11px] text-stone italic">Tap a seat for details</span>
+      )}
     </div>
   )
 }

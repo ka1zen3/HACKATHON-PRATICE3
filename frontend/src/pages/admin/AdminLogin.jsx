@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, KeyRound, ShieldCheck } from 'lucide-react'
+import { RiArrowLeftLine, RiArrowRightLine, RiKey2Line, RiShieldCheckLine } from 'react-icons/ri'
 import { Logo } from '../../components/Logo.jsx'
 import { Button } from '../../components/Button.jsx'
 import { StatusPill } from '../../components/StatusPill.jsx'
@@ -53,14 +53,14 @@ export default function AdminLogin() {
             to="/"
             className="inline-flex items-center gap-2 text-[12px] font-medium text-parchment/70 transition-colors hover:text-parchment"
           >
-            <ArrowLeft className="size-3.5" aria-hidden="true" />
+          <RiArrowLeftLine size={14} aria-hidden="true" />
             Back to site
           </Link>
         </div>
 
         <div className="mt-14 max-w-[30ch] lg:mt-0">
           <span className="inline-flex items-center gap-2 rounded-pill border border-signal/30 bg-signal/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.1em] text-signal">
-            <ShieldCheck className="size-3.5" aria-hidden="true" />
+            <RiShieldCheckLine size={14} aria-hidden="true" />
             Staff access
           </span>
           <h1 className="mt-5 text-[clamp(2.6rem,6vw,4.6rem)] font-medium leading-[0.92] tracking-[-0.04em]">
@@ -150,9 +150,9 @@ export default function AdminLogin() {
             )}
 
             <Button type="submit" size="xl" className="mt-6 w-full">
-              <KeyRound className="size-5" aria-hidden="true" />
+              <RiKey2Line size={20} aria-hidden="true" />
               Sign in
-              <ArrowRight className="size-4" aria-hidden="true" />
+              <RiArrowRightLine size={16} aria-hidden="true" />
             </Button>
           </form>
 
