@@ -1,0 +1,10 @@
+{
+  "description": "Helps students find and reserve vacant library seats, track their sessions, and lets administrators monitor occupancy and manage overdue sessions.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
