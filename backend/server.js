@@ -1,51 +1,20 @@
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-const bcrypt = require('bcryptjs');
+const cors    = require('cors');
+const bcrypt  = require('bcryptjs');
+const crypto  = require('crypto');
 
-const app = express();
+const app  = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// ── In-memory session store ──────────────────────────────────────────────────
-// Tracks active seat sessions during server runtime.
-// Shape: Map<seatId, SessionRecord>
-//
-// SessionRecord {
-//   seatId:        string
-//   areaId:        string
-//   status:        'pending' | 'occupied' | 'overdue'
-//   studentName:   string
-//   studentNumber: string
-//   reservedAt:    number  (ms timestamp)
-//   claimDeadline: number  (ms, pending seats only)
-//   occupiedAt:    number  (ms, occupied/overdue seats only)
-//   dueAt:         number  (ms, occupied/overdue seats only)
-//   releasedAt?:   number  (set when force-released by staff)
-//   releasedBy?:   { id, username, full_name }  (set when force-released)
-// }
-//
-// Released sessions move to releasedLog (capped at 200 entries) so the
-// admin can see recent staff actions.
+const supabase = require('./db');
 
-const activeSessions = new Map();
-const releasedLog    = [];
-const MAX_LOG        = 200;
-
-function addToLog(record) {
-  releasedLog.unshift(record);
-  if (releasedLog.length > MAX_LOG) releasedLog.length = MAX_LOG;
-}
-
-// ── Simple token store ───────────────────────────────────────────────────────
-// Maps opaque token → staff record. Tokens are random 32-byte hex strings.
-// In production you would use JWTs or database-backed sessions; this keeps
-// the demo self-contained with no extra dependencies.
-const crypto = require('crypto');
+// ── Token store ──────────────────────────────────────────────────────────────
 const authTokens = new Map(); // token → { id, username, full_name, role, issuedAt }
+const TOKEN_TTL  = 8 * 60 * 60 * 1000; // 8 hours
 
 function issueToken(staff) {
   const token = crypto.randomBytes(32).toString('hex');
@@ -53,21 +22,13 @@ function issueToken(staff) {
   return token;
 }
 
-// Token expiry: 8 hours (a full library shift)
-const TOKEN_TTL = 8 * 60 * 60 * 1000;
-
 function requireAuth(req, res, next) {
   const header = req.headers['authorization'] ?? '';
   const token  = header.startsWith('Bearer ') ? header.slice(7) : null;
-
-  if (!token) {
-    return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Sign in first.' } });
-  }
+  if (!token) return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Sign in first.' } });
 
   const staff = authTokens.get(token);
-  if (!staff) {
-    return res.status(401).json({ error: { code: 'INVALID_TOKEN', message: 'Token not recognised. Please sign in again.' } });
-  }
+  if (!staff) return res.status(401).json({ error: { code: 'INVALID_TOKEN', message: 'Token not recognised. Please sign in again.' } });
 
   if (Date.now() - staff.issuedAt > TOKEN_TTL) {
     authTokens.delete(token);
@@ -78,48 +39,34 @@ function requireAuth(req, res, next) {
   next();
 }
 
-// ── Health endpoints ─────────────────────────────────────────────────────────
-app.get('/', (req, res) => {
-  res.json({ message: 'Backend is running 🚀' });
-});
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function normalizeStudentNumber(value) {
+  const compact = String(value ?? '').trim().replace(/\s+/g, '');
+  const digits  = compact.replace(/[^0-9]/g, '');
+  if (/^\d{7}$/.test(digits))  return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+  if (/^\d{9}$/.test(digits))  return `${digits.slice(2, 4)}-${digits.slice(4)}`;
+  if (/^\d{2}-\d{5}$/.test(compact)) return compact;
+  if (/^\d{4}-\d{5}$/.test(compact)) return `${compact.slice(2, 4)}-${compact.slice(5)}`;
+  return compact;
+}
 
-app.get('/api/health', (req, res) => {
+// ── Health ───────────────────────────────────────────────────────────────────
+app.get('/', (_req, res) => res.json({ message: 'SeatSync backend 🚀' }));
+app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+
+app.get('/api/health/db', async (_req, res) => {
+  const { error } = await supabase.from('seats').select('id').limit(1);
+  if (error) return res.status(500).json({ error: { code: 'DB_UNREACHABLE', message: error.message } });
   res.json({ status: 'ok' });
 });
 
-const supabase = require('./db');
-
-app.get('/api/health/db', async (req, res) => {
-  const { data, error } = await supabase
-    .from('settings')
-    .select('reservation_minutes')
-    .eq('id', 1)
-    .single();
-
-  if (error) {
-    console.error('DB health check failed:', error);
-    return res.status(500).json({
-      error: { code: 'DB_UNREACHABLE', message: 'Database check failed' },
-    });
-  }
-  res.json({ status: 'ok', reservation_minutes: data.reservation_minutes });
-});
-
-// ── Staff / Admin login ──────────────────────────────────────────────────────
-// POST /api/admin/login
-// Body: { username: string, password: string }
-// Returns 200 { ok: true, token: string, staff: { id, username, full_name, role } }
-//      or 401 { error: { code, message } }
+// ── Admin auth ───────────────────────────────────────────────────────────────
 app.post('/api/admin/login', async (req, res) => {
   const { username, password } = req.body ?? {};
-
   if (!username || !password) {
-    return res.status(400).json({
-      error: { code: 'MISSING_FIELDS', message: 'Username and password are required.' },
-    });
+    return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Username and password are required.' } });
   }
 
-  // Look up the staff account (case-insensitive username)
   const { data: staff, error } = await supabase
     .from('staff')
     .select('id, username, full_name, role, password_hash')
@@ -127,198 +74,335 @@ app.post('/api/admin/login', async (req, res) => {
     .single();
 
   if (error || !staff) {
-    return res.status(401).json({
-      error: { code: 'INVALID_CREDENTIALS', message: 'Username or password is incorrect.' },
-    });
+    return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Username or password is incorrect.' } });
   }
 
-  // Compare the submitted password against the stored bcrypt hash
-  const passwordMatch = await bcrypt.compare(password, staff.password_hash);
-  if (!passwordMatch) {
-    return res.status(401).json({
-      error: { code: 'INVALID_CREDENTIALS', message: 'Username or password is incorrect.' },
-    });
+  const ok = await bcrypt.compare(password, staff.password_hash);
+  if (!ok) {
+    return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Username or password is incorrect.' } });
   }
 
-  // Never send the hash back to the client
   const { password_hash, ...safeStaff } = staff;
   const token = issueToken(safeStaff);
-
   return res.json({ ok: true, token, staff: safeStaff });
 });
 
-// ── Admin logout ─────────────────────────────────────────────────────────────
-// POST /api/admin/logout
-// Header: Authorization: Bearer <token>
 app.post('/api/admin/logout', requireAuth, (req, res) => {
-  const header = req.headers['authorization'] ?? '';
-  const token  = header.startsWith('Bearer ') ? header.slice(7) : null;
+  const token = (req.headers['authorization'] ?? '').slice(7);
   if (token) authTokens.delete(token);
   res.json({ ok: true });
 });
 
-// ── Sessions ─────────────────────────────────────────────────────────────────
+// ── Floor plan (areas + seats) ───────────────────────────────────────────────
+// GET /api/floor
+// Returns areas with their tables and seats, plus any active session per seat.
+// Open — no auth required (students and visitors need to see the live map).
+app.get('/api/floor', async (_req, res) => {
+  // 1. Load areas + tables
+  const { data: areas, error: aErr } = await supabase
+    .from('areas')
+    .select('*, tables:area_tables(id, label, type, seats, cols, sort_order)')
+    .order('sort_order');
 
-// GET /api/sessions
-// Returns all currently active sessions, sorted by duration desc.
-// Requires: Authorization: Bearer <token>
-app.get('/api/sessions', requireAuth, (req, res) => {
-  const rows = Array.from(activeSessions.values()).sort(
-    (a, b) =>
-      (b.occupiedAt ?? b.reservedAt ?? 0) -
-      (a.occupiedAt ?? a.reservedAt ?? 0),
-  );
-  res.json({ sessions: rows });
-});
+  if (aErr) return res.status(500).json({ error: { code: 'DB_ERROR', message: aErr.message } });
 
-// POST /api/sessions/sync
-// Frontend sends its full in-memory seat list so the backend stays in sync.
-// Body: { seats: Seat[] }  (full seat array from AppContext)
-// Returns 200 { ok: true, count: number }
-// Requires: Authorization: Bearer <token>
-app.post('/api/sessions/sync', requireAuth, (req, res) => {
-  const { seats } = req.body ?? {};
-  if (!Array.isArray(seats)) {
-    return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'seats array required.' } });
+  // 2. Load seats
+  const { data: seats, error: sErr } = await supabase
+    .from('seats')
+    .select('id, label, area_id, table_id, sort_order')
+    .order('sort_order');
+
+  if (sErr) return res.status(500).json({ error: { code: 'DB_ERROR', message: sErr.message } });
+
+  // 3. Load active sessions (not released)
+  const { data: sessions, error: ssErr } = await supabase
+    .from('sessions')
+    .select('*')
+    .neq('status', 'released');
+
+  if (ssErr) return res.status(500).json({ error: { code: 'DB_ERROR', message: ssErr.message } });
+
+  // 4. Build session map: seat_id → session
+  const sessionMap = {};
+  for (const s of sessions ?? []) {
+    sessionMap[s.seat_id] = s;
   }
 
-  activeSessions.clear();
-  for (const seat of seats) {
-    if (seat.session) {
-      activeSessions.set(seat.id, {
-        seatId:        seat.id,
-        areaId:        seat.areaId,
-        status:        seat.status,
-        studentName:   seat.session.studentName,
-        studentNumber: seat.session.studentNumber,
-        reservedAt:    seat.session.reservedAt    ?? null,
-        claimDeadline: seat.session.claimDeadline ?? null,
-        occupiedAt:    seat.session.occupiedAt    ?? null,
-        dueAt:         seat.session.dueAt         ?? null,
-      });
+  // 5. Merge seats + sessions into the shape the frontend expects
+  const now = Date.now();
+  const mergedSeats = (seats ?? []).map((seat) => {
+    const session = sessionMap[seat.id];
+    if (!session) {
+      return { id: seat.id, label: seat.label, areaId: seat.area_id, tableId: seat.table_id, status: 'vacant', session: null };
     }
-  }
 
-  res.json({ ok: true, count: activeSessions.size });
-});
+    // Auto-upgrade status: occupied → overdue if past dueAt
+    let status = session.status;
+    if (status === 'occupied' && session.due_at && new Date(session.due_at).getTime() <= now) {
+      status = 'overdue';
+    }
+    // Auto-expire: pending → vacant if past claim_deadline (session row stays until frontend confirms)
+    if (status === 'pending' && session.claim_deadline && new Date(session.claim_deadline).getTime() <= now) {
+      status = 'pending'; // keep pending, frontend will show expired hold UI
+    }
 
-// POST /api/sessions/:seatId/claim
-// Mark a pending seat as occupied (student clicked "I'm here").
-// Body: { occupiedAt: number, dueAt: number }
-// Requires: Authorization: Bearer <token>  (staff-triggered)
-//   OR just match the studentNumber — accept either form for the demo.
-app.post('/api/sessions/:seatId/claim', (req, res) => {
-  const { seatId } = req.params;
-  const { occupiedAt, dueAt } = req.body ?? {};
+    const clientSession = {
+      studentName:   session.student_name,
+      studentNumber: session.student_number,
+      reservedAt:    session.reserved_at    ? new Date(session.reserved_at).getTime()    : null,
+      claimDeadline: session.claim_deadline ? new Date(session.claim_deadline).getTime() : null,
+      occupiedAt:    session.occupied_at    ? new Date(session.occupied_at).getTime()    : null,
+      dueAt:         session.due_at         ? new Date(session.due_at).getTime()         : null,
+    };
 
-  const record = activeSessions.get(seatId);
-  if (!record) {
-    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No active session for this seat.' } });
-  }
-
-  activeSessions.set(seatId, {
-    ...record,
-    status: 'occupied',
-    occupiedAt: occupiedAt ?? Date.now(),
-    dueAt: dueAt ?? (Date.now() + 4 * 60 * 60 * 1000),
-    claimDeadline: null,
+    return { id: seat.id, label: seat.label, areaId: seat.area_id, tableId: seat.table_id, status, session: clientSession };
   });
 
-  res.json({ ok: true, session: activeSessions.get(seatId) });
-});
+  // 6. Sort tables within each area
+  const normalizedAreas = (areas ?? []).map((area) => ({
+    id:        area.id,
+    name:      area.name,
+    short:     area.short,
+    floor:     area.floor,
+    prefix:    area.prefix,
+    blurb:     area.blurb,
+    amenities: area.amenities ?? [],
+    cols:      area.cols,
+    count:     mergedSeats.filter((s) => s.areaId === area.id).length,
+    tables:    (area.tables ?? [])
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(({ id, label, type, seats: seatCount, cols }) => ({ id, label, type, seats: seatCount, cols })),
+  }));
 
-// POST /api/sessions/:seatId/release
-// Force-releases a seat. Used by admin (force time-out) or student (time-out).
-// Body: { reason: 'force' | 'timeout' | 'student' }
-// Requires: Authorization: Bearer <token>
-app.post('/api/sessions/:seatId/release', requireAuth, (req, res) => {
-  const { seatId } = req.params;
-  const { reason = 'force' } = req.body ?? {};
-
-  const record = activeSessions.get(seatId);
-  if (!record) {
-    // Seat may already have been cleared — treat as idempotent success
-    return res.json({ ok: true, alreadyReleased: true });
-  }
-
-  const released = {
-    ...record,
-    status: 'released',
-    releasedAt: Date.now(),
-    releasedBy: req.staff,
-    reason,
-  };
-  activeSessions.delete(seatId);
-  addToLog(released);
-
-  res.json({ ok: true, released });
-});
-
-// GET /api/sessions/log
-// Returns recent release history (last 200 events), most recent first.
-// Requires: Authorization: Bearer <token>
-app.get('/api/sessions/log', requireAuth, (req, res) => {
-  res.json({ log: releasedLog });
+  res.json({ areas: normalizedAreas, seats: mergedSeats });
 });
 
 // ── Students ─────────────────────────────────────────────────────────────────
+// GET /api/students/:number  — open, used by student login
+app.get('/api/students/:number', async (req, res) => {
+  const number = normalizeStudentNumber(req.params.number);
+  const { data, error } = await supabase
+    .from('students')
+    .select('number, name, program, year')
+    .eq('number', number)
+    .single();
 
-// In-memory student store (mirrors the frontend's studentsMap for the demo)
-const studentsStore = new Map();
-
-// GET /api/students
-// Returns all students as an array sorted by name.
-// Requires: Authorization: Bearer <token>
-app.get('/api/students', requireAuth, (req, res) => {
-  const list = Array.from(studentsStore.values()).sort((a, b) =>
-    a.name.localeCompare(b.name),
-  );
-  res.json({ students: list });
-});
-
-// GET /api/students/:number
-// Looks up a student by their normalised YY-NNNNN number.
-// Open — no auth required so the student login page can call it.
-app.get('/api/students/:number', (req, res) => {
-  const number = req.params.number;
-  const student = studentsStore.get(number);
-  if (!student) {
+  if (error || !data) {
     return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Student not found.' } });
   }
-  res.json({ student });
+  res.json({ student: data });
 });
 
-// POST /api/students/import
-// Bulk upsert students.
-// Body: { students: Array<{ number, name, program, year }> }
-// Requires: Authorization: Bearer <token>
-app.post('/api/students/import', requireAuth, (req, res) => {
+// GET /api/students — admin only, returns full roster
+app.get('/api/students', requireAuth, async (_req, res) => {
+  const { data, error } = await supabase
+    .from('students')
+    .select('number, name, program, year')
+    .order('name');
+
+  if (error) return res.status(500).json({ error: { code: 'DB_ERROR', message: error.message } });
+  res.json({ students: data ?? [] });
+});
+
+// POST /api/students/import — admin, bulk upsert
+app.post('/api/students/import', requireAuth, async (req, res) => {
   const { students } = req.body ?? {};
   if (!Array.isArray(students)) {
     return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'students array required.' } });
   }
 
-  let added = 0;
-  let updated = 0;
-  for (const s of students) {
-    if (!s.number || !s.name) continue;
-    if (studentsStore.has(s.number)) {
-      updated++;
-    } else {
-      added++;
-    }
-    studentsStore.set(s.number, {
-      number:  s.number,
+  const rows = students
+    .filter((s) => s.number && s.name)
+    .map((s) => ({
+      number:  normalizeStudentNumber(s.number),
       name:    (s.name    ?? '').trim(),
       program: (s.program ?? '').trim(),
       year:    (s.year    ?? '').trim(),
-    });
-  }
+    }));
 
-  res.json({ ok: true, added, updated });
+  const { error } = await supabase
+    .from('students')
+    .upsert(rows, { onConflict: 'number' });
+
+  if (error) return res.status(500).json({ error: { code: 'DB_ERROR', message: error.message } });
+  res.json({ ok: true, count: rows.length });
 });
 
-// Start server
+// ── Sessions ─────────────────────────────────────────────────────────────────
+// POST /api/sessions/reserve
+// Student reserves a seat — creates a pending session.
+// Body: { seatId, studentNumber, studentName }
+app.post('/api/sessions/reserve', async (req, res) => {
+  const { seatId, studentNumber, studentName } = req.body ?? {};
+  if (!seatId || !studentNumber || !studentName) {
+    return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'seatId, studentNumber, and studentName are required.' } });
+  }
+
+  // Check seat is not already taken
+  const { data: existing } = await supabase
+    .from('sessions')
+    .select('id')
+    .eq('seat_id', seatId)
+    .neq('status', 'released')
+    .single();
+
+  if (existing) {
+    return res.status(409).json({ error: { code: 'SEAT_TAKEN', message: 'That seat already has an active session.' } });
+  }
+
+  const now          = new Date();
+  const claimDeadline = new Date(now.getTime() + 15 * 60 * 1000);
+  const id = `S-${seatId}-${now.getTime()}`;
+
+  // Get area_id from seats table
+  const { data: seatRow } = await supabase.from('seats').select('area_id').eq('id', seatId).single();
+  const areaId = seatRow?.area_id ?? '';
+
+  const { error } = await supabase.from('sessions').insert({
+    id,
+    seat_id:        seatId,
+    area_id:        areaId,
+    student_number: normalizeStudentNumber(studentNumber),
+    student_name:   studentName,
+    status:         'pending',
+    reserved_at:    now.toISOString(),
+    claim_deadline: claimDeadline.toISOString(),
+  });
+
+  if (error) return res.status(500).json({ error: { code: 'DB_ERROR', message: error.message } });
+
+  res.json({
+    ok: true,
+    session: {
+      id,
+      seatId,
+      areaId,
+      state:         'pending',
+      reservedAt:    now.getTime(),
+      claimDeadline: claimDeadline.getTime(),
+      student:       { number: normalizeStudentNumber(studentNumber), name: studentName },
+    },
+  });
+});
+
+// POST /api/sessions/:seatId/claim
+// Student taps "I'm here" — pending → occupied.
+app.post('/api/sessions/:seatId/claim', async (req, res) => {
+  const { seatId } = req.params;
+  const now    = new Date();
+  const dueAt  = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+
+  const { data: session, error: fErr } = await supabase
+    .from('sessions')
+    .select('id')
+    .eq('seat_id', seatId)
+    .eq('status', 'pending')
+    .single();
+
+  if (fErr || !session) {
+    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No pending session for this seat.' } });
+  }
+
+  const { error } = await supabase
+    .from('sessions')
+    .update({ status: 'occupied', occupied_at: now.toISOString(), due_at: dueAt.toISOString() })
+    .eq('id', session.id);
+
+  if (error) return res.status(500).json({ error: { code: 'DB_ERROR', message: error.message } });
+
+  res.json({ ok: true, occupiedAt: now.getTime(), dueAt: dueAt.getTime() });
+});
+
+// POST /api/sessions/:seatId/release
+// Student times out or admin force-releases.
+// Body: { reason: 'student' | 'force' | 'timeout' }
+app.post('/api/sessions/:seatId/release', async (req, res) => {
+  const { seatId } = req.params;
+  const { reason = 'student' } = req.body ?? {};
+
+  // Auth is optional — students can release their own seat without a token
+  const header = req.headers['authorization'] ?? '';
+  const token  = header.startsWith('Bearer ') ? header.slice(7) : null;
+  const staff  = token ? authTokens.get(token) : null;
+
+  const { data: session, error: fErr } = await supabase
+    .from('sessions')
+    .select('id')
+    .eq('seat_id', seatId)
+    .neq('status', 'released')
+    .single();
+
+  if (fErr || !session) {
+    // Already released — idempotent success
+    return res.json({ ok: true, alreadyReleased: true });
+  }
+
+  const updatePayload = {
+    status:        'released',
+    released_at:   new Date().toISOString(),
+    release_reason: reason,
+    ...(staff ? { released_by_id: staff.id } : {}),
+  };
+
+  const { error } = await supabase.from('sessions').update(updatePayload).eq('id', session.id);
+  if (error) return res.status(500).json({ error: { code: 'DB_ERROR', message: error.message } });
+
+  res.json({ ok: true });
+});
+
+// GET /api/sessions — admin only, returns all active sessions
+app.get('/api/sessions', requireAuth, async (_req, res) => {
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('*')
+    .neq('status', 'released')
+    .order('reserved_at', { ascending: false });
+
+  if (error) return res.status(500).json({ error: { code: 'DB_ERROR', message: error.message } });
+  res.json({ sessions: data ?? [] });
+});
+
+// GET /api/sessions/log — admin only, recent release history
+app.get('/api/sessions/log', requireAuth, async (_req, res) => {
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('*')
+    .eq('status', 'released')
+    .order('released_at', { ascending: false })
+    .limit(200);
+
+  if (error) return res.status(500).json({ error: { code: 'DB_ERROR', message: error.message } });
+  res.json({ log: data ?? [] });
+});
+
+// POST /api/sessions/sync — legacy compatibility, kept for now
+// Frontend still calls this but it's a no-op since DB is source of truth.
+app.post('/api/sessions/sync', requireAuth, (_req, res) => {
+  res.json({ ok: true, note: 'DB is source of truth — sync is a no-op.' });
+});
+
+// ── Seat management (admin) ──────────────────────────────────────────────────
+// POST /api/seats — add new seats to a table
+app.post('/api/seats', requireAuth, async (req, res) => {
+  const { areaId, tableId, seats } = req.body ?? {};
+  if (!areaId || !tableId || !Array.isArray(seats) || seats.length === 0) {
+    return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'areaId, tableId, and seats[] required.' } });
+  }
+
+  const rows = seats.map((s, i) => ({
+    id:         s.id,
+    label:      s.label,
+    area_id:    areaId,
+    table_id:   tableId,
+    sort_order: s.sortOrder ?? i,
+  }));
+
+  const { error } = await supabase.from('seats').insert(rows);
+  if (error) return res.status(500).json({ error: { code: 'DB_ERROR', message: error.message } });
+
+  res.json({ ok: true, added: rows.length });
+});
+
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`SeatSync backend running on http://localhost:${PORT}`);
 });
