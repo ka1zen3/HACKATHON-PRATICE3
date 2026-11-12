@@ -1,44 +1,48 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Armchair, Check, Clock3, LogOut, MapPin } from 'lucide-react'
-import { AppLayout } from '../components/AppLayout.jsx'
+import {
+  RiArmchairLine,
+  RiCheckLine,
+  RiTimeLine,
+  RiLogoutBoxLine,
+  RiMapPinLine,
+} from 'react-icons/ri'
+import { AppLayout }     from '../components/AppLayout.jsx'
 import { PageContainer } from '../components/PageContainer.jsx'
-import { Button } from '../components/Button.jsx'
-import { EmptyState } from '../components/EmptyState.jsx'
-import { Modal } from '../components/Modal.jsx'
-import { StatusPill } from '../components/StatusPill.jsx'
-import { Toast } from '../components/Toast.jsx'
-import { useApp } from '../context/useApp.js'
-import { useNow } from '../hooks/useNow.js'
+import { Button }        from '../components/Button.jsx'
+import { EmptyState }    from '../components/EmptyState.jsx'
+import { Modal }         from '../components/Modal.jsx'
+import { StatusPill }    from '../components/StatusPill.jsx'
+import { Toast }         from '../components/Toast.jsx'
+import { useApp }        from '../context/useApp.js'
+import { useNow }        from '../hooks/useNow.js'
 import { formatClock, formatTimeOfDay, initials } from '../lib/format.js'
 import { formatShort, getArea, getWindowProgress } from '../lib/seats.js'
-import { buttonClass } from '../lib/buttonClass.js'
+import { buttonClass }   from '../lib/buttonClass.js'
 
 const BAR_TONES = {
-  signal: 'bg-signal-deep',
-  amber: 'bg-amber',
+  signal: 'bg-lime-deep',
+  amber:  'bg-amber',
   danger: 'bg-danger',
 }
 
 export default function Session() {
   const { seats, student, activeSession, markHere, timeOut } = useApp()
   const now = useNow()
-  const [modalOpen, setModalOpen] = useState(false)
-  const [notice, setNotice] = useState('')
-  const [endedSeat, setEndedSeat] = useState(null)
+  const [modalOpen,  setModalOpen]  = useState(false)
+  const [notice,     setNotice]     = useState('')
+  const [endedSeat,  setEndedSeat]  = useState(null)
 
-  const seat = activeSession
-    ? seats.find((item) => item.id === activeSession.seatId)
-    : null
+  const seat = activeSession ? seats.find((s) => s.id === activeSession.seatId) : null
   const area = seat ? getArea(seat.areaId) : null
 
   const view = (() => {
     if (!activeSession || !seat) return null
 
-    const pending = activeSession.state === 'pending'
-    const start = activeSession.occupiedAt ?? activeSession.reservedAt
+    const pending  = activeSession.state === 'pending'
+    const start    = activeSession.occupiedAt ?? activeSession.reservedAt
     const progress = getWindowProgress(seat, now)
-    const expired = pending && now >= activeSession.claimDeadline
+    const expired  = pending && now >= activeSession.claimDeadline
     const remaining = pending
       ? Math.max(0, activeSession.claimDeadline - now)
       : Math.max(0, activeSession.dueAt - now)
@@ -53,25 +57,21 @@ export default function Session() {
       remaining,
       elapsed,
       percent,
-      timer: pending ? remaining : elapsed,
-      timerLabel: pending
-        ? expired
-          ? 'Hold expired'
-          : 'Time left to claim'
-        : 'Time in session',
+      timer:      pending ? remaining : elapsed,
+      timerLabel: pending ? (expired ? 'Hold expired' : 'Time left to claim') : 'Time in session',
       helper: pending
         ? expired
           ? 'The 15-minute hold has ended. Release the seat so someone else can use it.'
-          : `Tap I’m here within ${formatClock(remaining)} to keep this seat.`
+          : `Tap I'm here within ${formatClock(remaining)} to keep this seat.`
         : `Time out when you leave. Your session ends at ${formatTimeOfDay(activeSession.dueAt)}.`,
       progressLabel: pending ? 'Grace window' : 'Session limit',
-      supporting: `${formatShort(remaining)} left`,
+      supporting:    `${formatShort(remaining)} left`,
     }
   })()
 
   const handleHere = () => {
     markHere()
-    setNotice('You’re checked in. The clock is running.')
+    setNotice("You're checked in. The clock is running.")
   }
 
   const handleEnd = () => {
@@ -94,6 +94,7 @@ export default function Session() {
     <AppLayout>
       <div className="min-h-[70svh] bg-parchment py-10 sm:py-14">
         <PageContainer>
+          {/* Header */}
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <StatusPill status={status} pulse={activeSession && !view?.expired}>
@@ -105,18 +106,18 @@ export default function Session() {
                       ? 'Held'
                       : 'In session'}
               </StatusPill>
-              <h1 className="mt-3 text-[clamp(2rem,4.6vw,3.6rem)] font-medium leading-[0.98] tracking-[-0.03em]">
+              <h1 className="mt-3 text-[clamp(2rem,4.6vw,3.6rem)] font-bold leading-[0.98] tracking-[-0.03em]">
                 Your session
               </h1>
             </div>
 
             {student && (
               <div className="flex items-center gap-3 rounded-pill border border-ash bg-canvas px-3 py-2">
-                <span className="grid size-7 place-items-center rounded-full bg-signal text-[10px] font-medium text-ink">
+                <span className="grid size-7 place-items-center rounded-full bg-lime text-[10px] font-bold text-ink">
                   {initials(student.name)}
                 </span>
                 <div className="text-[12px] leading-tight">
-                  <p className="font-medium">{student.name}</p>
+                  <p className="font-semibold">{student.name}</p>
                   <p className="text-ink-soft">{student.number}</p>
                 </div>
               </div>
@@ -127,7 +128,7 @@ export default function Session() {
             <div className="mt-8">
               {endedSeat ? (
                 <EmptyState
-                  icon={Check}
+                  icon={RiCheckLine}
                   title="Session ended"
                   description={`Seat ${endedSeat} is open again. Someone else can take it from the live map.`}
                   action={
@@ -143,9 +144,9 @@ export default function Session() {
                 />
               ) : (
                 <EmptyState
-                  icon={Armchair}
+                  icon={RiArmchairLine}
                   title="No active session"
-                  description="You’re timed in, but you haven’t claimed a seat yet. Pick one from the live floor and we’ll hold it for 15 minutes."
+                  description="You're timed in, but you haven't claimed a seat yet. Pick one from the live floor and we'll hold it for 15 minutes."
                   action={
                     <Link to="/reserve" className={buttonClass({ size: 'md' })}>
                       Reserve a seat
@@ -156,33 +157,31 @@ export default function Session() {
             </div>
           ) : (
             <div className="mt-8 grid gap-5 lg:grid-cols-[1fr_340px] lg:items-start">
+              {/* Timer card */}
               <section className="rounded-card border border-ash bg-canvas p-5 sm:p-8">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="text-[12px] text-ink-soft">
                       {area.name} · {area.floor}
                     </p>
-                    <p className="mt-1 text-[22px] font-medium tracking-[-0.02em]">
+                    <p className="mt-1 text-[22px] font-semibold tracking-[-0.02em]">
                       Seat {seat.label}
                     </p>
                   </div>
                   <StatusPill status={status} pulse={!view?.expired}>
-                    {view?.expired
-                      ? 'Expired'
-                      : activeSession.state === 'pending'
-                        ? 'Held'
-                        : 'In session'}
+                    {view?.expired ? 'Expired' : activeSession.state === 'pending' ? 'Held' : 'In session'}
                   </StatusPill>
                 </div>
 
+                {/* Big timer */}
                 <div className="mt-8">
-                  <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink-soft">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-soft">
                     {view?.timerLabel}
                   </p>
                   <p
                     role="timer"
                     aria-live="off"
-                    className={`numeric mt-2 text-[clamp(4rem,15vw,9.5rem)] font-medium leading-[0.82] tracking-[-0.04em] ${
+                    className={`numeric mt-2 text-[clamp(4rem,15vw,9.5rem)] font-bold leading-[0.82] tracking-[-0.04em] ${
                       view?.expired ? 'text-danger' : 'text-ink'
                     }`}
                   >
@@ -190,6 +189,7 @@ export default function Session() {
                   </p>
                 </div>
 
+                {/* Progress bar */}
                 <div className="mt-6">
                   <div className="flex items-center justify-between gap-3 text-[12px]">
                     <span className="text-ink-soft">{view?.progressLabel}</span>
@@ -207,11 +207,12 @@ export default function Session() {
                   {view?.helper}
                 </p>
 
+                {/* Action buttons */}
                 <div className="mt-7 flex flex-col gap-2 sm:flex-row">
                   {activeSession.state === 'pending' && !view?.expired && (
                     <>
                       <Button size="xl" className="sm:flex-1" onClick={handleHere}>
-                        <Check className="size-5" aria-hidden="true" />
+                        <RiCheckLine size={20} aria-hidden="true" />
                         I&apos;m here
                       </Button>
                       <Button variant="outline" size="xl" onClick={() => setModalOpen(true)}>
@@ -229,13 +230,10 @@ export default function Session() {
                   {activeSession.state === 'occupied' && (
                     <>
                       <Button size="xl" className="sm:flex-1" onClick={() => setModalOpen(true)}>
-                        <LogOut className="size-5" aria-hidden="true" />
+                        <RiLogoutBoxLine size={20} aria-hidden="true" />
                         Time out
                       </Button>
-                      <Link
-                        to="/"
-                        className={buttonClass({ variant: 'outline', size: 'xl' })}
-                      >
+                      <Link to="/" className={buttonClass({ variant: 'outline', size: 'xl' })}>
                         Back to map
                       </Link>
                     </>
@@ -243,16 +241,17 @@ export default function Session() {
                 </div>
               </section>
 
-              <aside>
+              {/* Seat info sidebar */}
+              <aside className="space-y-4">
                 <div className="rounded-card border border-ash bg-canvas p-5 sm:p-6">
-                  <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink-soft">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-soft">
                     Your seat
                   </p>
-                  <p className="numeric mt-2 text-[52px] font-medium leading-none tracking-[-0.04em]">
+                  <p className="numeric mt-2 text-[52px] font-bold leading-none tracking-[-0.04em]">
                     {seat.label}
                   </p>
                   <p className="mt-2 inline-flex items-center gap-1.5 text-[13px] text-ink-soft">
-                    <MapPin className="size-3.5" aria-hidden="true" />
+                    <RiMapPinLine size={14} aria-hidden="true" />
                     {area.name} · {area.floor}
                   </p>
 
@@ -260,7 +259,7 @@ export default function Session() {
                     {area.amenities.map((amenity) => (
                       <span
                         key={amenity}
-                        className="rounded-pill border border-ash px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-ink-soft"
+                        className="rounded-pill border border-ash px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-soft"
                       >
                         {amenity}
                       </span>
@@ -270,7 +269,7 @@ export default function Session() {
                   <dl className="mt-5 space-y-2.5 border-t border-ash pt-4 text-[13px]">
                     <div className="flex items-center justify-between gap-4">
                       <dt className="text-ink-soft">Student</dt>
-                      <dd className="text-right font-medium">{student?.name}</dd>
+                      <dd className="text-right font-semibold">{student?.name}</dd>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <dt className="text-ink-soft">
@@ -297,9 +296,9 @@ export default function Session() {
                   </dl>
                 </div>
 
-                <div className="mt-4 rounded-card border border-ash bg-parchment p-5">
-                  <h2 className="inline-flex items-center gap-2 text-[14px] font-medium">
-                    <Clock3 className="size-4" aria-hidden="true" />
+                <div className="rounded-card border border-ash bg-parchment p-5">
+                  <h2 className="inline-flex items-center gap-2 text-[14px] font-semibold">
+                    <RiTimeLine size={16} className="text-ink-soft" aria-hidden="true" />
                     Session rules
                   </h2>
                   <ul className="mt-3 space-y-2 text-[13px] leading-relaxed text-ink-soft">
@@ -314,6 +313,7 @@ export default function Session() {
         </PageContainer>
       </div>
 
+      {/* Time out / Release modal */}
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -337,7 +337,7 @@ export default function Session() {
         <div className="rounded-inner border border-ash bg-parchment p-4 text-[13px] text-ink-soft">
           <p>
             {activeSession?.state === 'occupied'
-              ? `You’ve been in this seat for ${formatShort(view?.elapsed ?? 0)}.`
+              ? `You've been in this seat for ${formatShort(view?.elapsed ?? 0)}.`
               : `The seat is held for another ${formatShort(view?.remaining ?? 0)}.`}
           </p>
         </div>

@@ -1,13 +1,15 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { ExternalLink, LayoutGrid, List, LogOut, ShieldCheck } from 'lucide-react'
+import { RiExternalLinkLine, RiLayoutGridLine, RiListCheck2, RiLogoutBoxLine, RiShieldCheckLine, RiTeamLine, RiSofaLine } from 'react-icons/ri'
 import { Logo } from './Logo.jsx'
 import { useApp } from '../context/useApp.js'
 import { useNow } from '../hooks/useNow.js'
 import { formatLongDate, formatTimeOfDay } from '../lib/format.js'
 
 const ADMIN_NAV = [
-  { to: '/admin/dashboard', label: 'Live monitor', icon: LayoutGrid, end: true },
-  { to: '/admin/sessions', label: 'Sessions', icon: List, end: true },
+  { to: '/admin/dashboard', label: 'Live monitor', icon: RiLayoutGridLine, end: true },
+  { to: '/admin/sessions',  label: 'Sessions',     icon: RiListCheck2,     end: true },
+  { to: '/admin/students',  label: 'Students',     icon: RiTeamLine,       end: true },
+  { to: '/admin/seats',     label: 'Seat manager', icon: RiSofaLine,       end: true },
 ]
 
 function sidebarClasses({ isActive }) {
@@ -37,8 +39,8 @@ export function AdminLayout({ children }) {
         </div>
 
         <div className="px-5">
-          <span className="inline-flex items-center gap-2 rounded-pill border border-signal-line bg-signal-wash px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.1em] text-signal-deep">
-            <ShieldCheck className="size-3.5" aria-hidden="true" />
+          <span className="inline-flex items-center gap-2 rounded-pill border border-lime-line bg-lime-wash px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-ink">
+            <RiShieldCheckLine size={14} aria-hidden="true" />
             Librarian console
           </span>
         </div>
@@ -46,7 +48,7 @@ export function AdminLayout({ children }) {
         <nav className="mt-6 space-y-1 px-3" aria-label="Admin navigation">
           {ADMIN_NAV.map(({ to, label, icon: Icon, end }) => (
             <NavLink key={to} to={to} end={end} className={sidebarClasses}>
-              <Icon className="size-4" aria-hidden="true" />
+              <Icon size={16} aria-hidden="true" />
               {label}
             </NavLink>
           ))}
@@ -66,7 +68,7 @@ export function AdminLayout({ children }) {
             to="/"
             className="flex h-9 items-center gap-2 rounded-pill px-3 text-[13px] font-medium text-ink-soft transition-colors hover:bg-canvas hover:text-ink"
           >
-            <ExternalLink className="size-4" aria-hidden="true" />
+            <RiExternalLinkLine size={14} aria-hidden="true" />
             Back to site
           </Link>
           <button
@@ -74,7 +76,7 @@ export function AdminLayout({ children }) {
             onClick={handleLogout}
             className="flex h-9 w-full items-center gap-2 rounded-pill px-3 text-[13px] font-medium text-ink-soft transition-colors hover:bg-canvas hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
           >
-            <LogOut className="size-4" aria-hidden="true" />
+            <RiLogoutBoxLine size={16} aria-hidden="true" />
             Sign out
           </button>
         </div>
@@ -103,7 +105,7 @@ export function AdminLayout({ children }) {
                 to="/"
                 className="hidden h-9 items-center gap-1.5 rounded-pill border border-ash bg-canvas px-3 text-[12px] font-medium transition-colors hover:border-ink sm:inline-flex"
               >
-                <ExternalLink className="size-3.5" aria-hidden="true" />
+                <RiExternalLinkLine size={14} aria-hidden="true" />
                 Back to site
               </Link>
               <span className="inline-flex h-9 items-center gap-2 rounded-pill border border-ash bg-canvas px-3 text-[12px] font-medium">
@@ -132,7 +134,7 @@ export function AdminLayout({ children }) {
                   }`
                 }
               >
-                <Icon className="size-3.5" aria-hidden="true" />
+                <Icon size={14} aria-hidden="true" />
                 {label}
               </NavLink>
             ))}
