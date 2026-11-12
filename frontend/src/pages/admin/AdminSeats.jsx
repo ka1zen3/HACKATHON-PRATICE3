@@ -5,6 +5,9 @@
  * separated by a ruled divider. The "Add seats" form lets the librarian
  * specify the exact seat name prefix, starting number, and count — a live
  * preview shows the exact labels that will be created before they commit.
+ * AdminSeats — seat manager page.
+ * Lets librarians add more seats to any table in any section.
+ * Shows live per-table occupancy: vacant / occupied / pending / overdue counts.
  */
 import { useMemo, useState } from 'react'
 import {
@@ -19,6 +22,7 @@ import { AdminLayout }  from '../../components/AdminLayout.jsx'
 import { Button }       from '../../components/Button.jsx'
 import { StatusPill }   from '../../components/StatusPill.jsx'
 import { useApp }       from '../../context/useApp.js'
+import { useNow }       from '../../hooks/useNow.js'
 import { getSeatStats } from '../../lib/seats.js'
 
 /* ── helpers ───────────────────────────────────────────────── */
@@ -60,6 +64,71 @@ function SeatRows({ tableSeats, groupSize = 8 }) {
       <p className="py-2 text-[11px] italic text-stone">No seats assigned yet.</p>
     )
   }
+// Dot colours for status breakdown
+const STATUS_DOT = {
+  vacant:   'bg-signal-deep',
+  occupied: 'bg-ink',
+  pending:  'bg-amber',
+  overdue:  'bg-danger',
+}
+
+function TableRow({ table, seats }) {
+  const tSeats = seats.filter((s) => s.tableId === table.id)
+  const counts = tSeats.reduce(
+    (acc, s) => { acc[s.status] = (acc[s.status] ?? 0) + 1; return acc },
+    {},
+  )
+  const vacant   = counts.vacant   ?? 0
+  const occupied = counts.occupied ?? 0
+  const pending  = counts.pending  ?? 0
+  const overdue  = counts.overdue  ?? 0
+  const total    = tSeats.length
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-inner bg-parchment px-3 py-2.5 text-[12px]">
+      <span className="font-medium">{table.label}</span>
+      <div className="flex items-center gap-3">
+        {/* Status dots */}
+        <div className="flex items-center gap-1.5">
+          {overdue > 0 && (
+            <span className="inline-flex items-center gap-1 text-danger">
+              <span className={`size-1.5 rounded-full ${STATUS_DOT.overdue}`} aria-hidden="true" />
+              <span className="numeric">{overdue}</span>
+            </span>
+          )}
+          {pending > 0 && (
+            <span className="inline-flex items-center gap-1 text-amber">
+              <span className={`size-1.5 rounded-full ${STATUS_DOT.pending}`} aria-hidden="true" />
+              <span className="numeric">{pending}</span>
+            </span>
+          )}
+          {occupied > 0 && (
+            <span className="inline-flex items-center gap-1 text-ink-soft">
+              <span className={`size-1.5 rounded-full ${STATUS_DOT.occupied}`} aria-hidden="true" />
+              <span className="numeric">{occupied}</span>
+            </span>
+          )}
+          {vacant > 0 && (
+            <span className="inline-flex items-center gap-1 text-signal-deep">
+              <span className={`size-1.5 rounded-full ${STATUS_DOT.vacant}`} aria-hidden="true" />
+              <span className="numeric">{vacant}</span>
+            </span>
+          )}
+        </div>
+        <span className="numeric text-ink-soft">{total} seats</span>
+      </div>
+    </div>
+  )
+}
+
+function AreaCard({ area, seats, onAddSeats }) {
+  const [tableId, setTableId] = useState(area.tables[0]?.id ?? '')
+  const [count,   setCount]   = useState(1)
+  const [flash,   setFlash]   = useState(false)
+
+  const areaSeats = seats.filter((s) => s.areaId === area.id)
+  const stats     = getSeatStats(areaSeats)
+  const pct       = stats.total > 0 ? Math.round((stats.vacant / stats.total) * 100) : 0
 
   const groups = chunk(tableSeats, groupSize)
 
@@ -331,6 +400,71 @@ function AreaCard({ area, seats, onAddSeats }) {
 
       {/* Add seats form */}
       <AddSeatsForm area={area} seats={seats} onAdd={onAddSeats} />
+      {/* Availability bar */}
+      <div className="mt-3">
+        <div className="flex justify-between text-[11px] text-ink-soft mb-1">
+          <span>{stats.vacant} open</span>
+          <span>{stats.occupied + stats.overdue} in use{stats.pending > 0 ? ` · ${stats.pending} held` : ''}</span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-ash" aria-hidden="true">
+          <div
+            className="h-full rounded-full bg-signal-deep transition-[width] duration-500"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Per-table breakdown */}
+      <div className="mt-4 space-y-1.5">
+        {area.tables.map((table) => (
+          <TableRow key={table.id} table={table} seats={seats} />
+        ))}
+      </div>
+
+      {/* Add seats form */}
+      <div className="mt-5 border-t border-ash pt-4">
+        <p className="text-[12px] font-semibold text-ink">Add seats</p>
+        <div className="mt-2 flex flex-wrap items-end gap-2">
+          <div className="min-w-[140px] flex-1">
+            <label htmlFor={`table-${area.id}`} className="text-[11px] text-ink-soft">
+              Table
+            </label>
+            <select
+              id={`table-${area.id}`}
+              value={tableId}
+              onChange={(e) => setTableId(e.target.value)}
+              className="mt-1 h-10 w-full rounded-input border border-ash bg-canvas px-3 text-[13px] text-ink focus:border-ink focus:outline-none focus:ring-2 focus:ring-lime"
+            >
+              {area.tables.map((t) => (
+                <option key={t.id} value={t.id}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="w-24">
+            <label htmlFor={`count-${area.id}`} className="text-[11px] text-ink-soft">
+              Count
+            </label>
+            <input
+              id={`count-${area.id}`}
+              type="number"
+              min={1}
+              max={20}
+              value={count}
+              onChange={(e) => setCount(Math.max(1, Math.min(20, Number(e.target.value))))}
+              className="mt-1 h-10 w-full rounded-input border border-ash bg-canvas px-3 text-[13px] text-ink focus:border-ink focus:outline-none focus:ring-2 focus:ring-lime"
+            />
+          </div>
+
+          <Button size="md" onClick={handleAdd} className={flash ? 'bg-lime-deep' : ''}>
+            {flash ? (
+              <><RiCheckLine size={16} aria-hidden="true" /> Added</>
+            ) : (
+              <><RiAddLine size={16} aria-hidden="true" /> Add seats</>
+            )}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -338,7 +472,17 @@ function AreaCard({ area, seats, onAddSeats }) {
 /* ── Page ───────────────────────────────────────────────────── */
 export default function AdminSeats() {
   const { areas, seats, addSeatsToArea, resetDemo } = useApp()
-  const stats = getSeatStats(seats)
+  // 10s tick is enough — seat status changes arrive via context, not polling
+  const now    = useNow(10000)
+  const stats  = useMemo(() => getSeatStats(seats), [seats])
+
+  // Compute overdue count live: occupied seats past dueAt
+  const overdueCount = useMemo(
+    () => seats.filter(
+      (s) => s.status === 'occupied' && s.session?.dueAt && now >= s.session.dueAt,
+    ).length + seats.filter((s) => s.status === 'overdue').length,
+    [seats, now],
+  )
 
   return (
     <AdminLayout>
@@ -371,6 +515,18 @@ export default function AdminSeats() {
             { label: 'Open',        value: stats.vacant,                    tone: 'text-signal-deep' },
             { label: 'In use',      value: stats.occupied + stats.overdue,  tone: '' },
             { label: 'Sections',    value: areas.length,                    tone: '' },
+      {/* Summary stats */}
+      <section
+        aria-label="Floor summary"
+        className="mt-6 rounded-card border border-ash bg-canvas"
+      >
+        <dl className="grid grid-cols-2 divide-x divide-y divide-ash sm:grid-cols-5 sm:divide-y-0">
+          {[
+            { label: 'Total seats', value: stats.total,                        tone: '' },
+            { label: 'Open',        value: stats.vacant,                       tone: 'text-signal-deep' },
+            { label: 'Held',        value: stats.pending,                      tone: 'text-amber' },
+            { label: 'In use',      value: stats.occupied,                     tone: '' },
+            { label: 'Overdue',     value: overdueCount,                       tone: overdueCount > 0 ? 'text-danger' : '' },
           ].map((s) => (
             <div key={s.label} className="px-5 py-4">
               <dt className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-soft">

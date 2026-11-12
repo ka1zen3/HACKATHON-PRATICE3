@@ -22,8 +22,19 @@ function sidebarClasses({ isActive }) {
 }
 
 export function AdminLayout({ children }) {
-  const { adminLogout } = useApp()
+  const { adminLogout, staffInfo } = useApp()
   const navigate = useNavigate()
+
+  // Derive initials from full_name, falling back to "AD"
+  const initials = staffInfo?.full_name
+    ? staffInfo.full_name
+        .split(' ')
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase() ?? '')
+        .join('')
+    : 'AD'
+  const displayName = staffInfo?.full_name ?? 'Admin'
+  const displayRole = staffInfo?.role === 'admin' ? 'Admin' : 'Staff'
   const now = useNow(30000)
 
   const handleLogout = () => {
@@ -57,11 +68,11 @@ export function AdminLayout({ children }) {
         <div className="mt-auto space-y-2 border-t border-ash p-4">
           <div className="flex items-center gap-2.5 rounded-inner border border-ash bg-canvas p-3">
             <span className="grid size-8 place-items-center rounded-full bg-charcoal text-[11px] font-medium text-parchment">
-              AD
+              {initials}
             </span>
             <div className="min-w-0">
-              <p className="text-[12px] font-medium">Admin</p>
-              <p className="text-[11px] text-ink-soft">Circulation desk</p>
+              <p className="text-[12px] font-medium">{displayName}</p>
+              <p className="text-[11px] text-ink-soft">{displayRole}</p>
             </div>
           </div>
           <Link
@@ -110,9 +121,9 @@ export function AdminLayout({ children }) {
               </Link>
               <span className="inline-flex h-9 items-center gap-2 rounded-pill border border-ash bg-canvas px-3 text-[12px] font-medium">
                 <span className="grid size-5 place-items-center rounded-full bg-charcoal text-[9px] text-parchment">
-                  AD
+                  {initials}
                 </span>
-                Admin
+                {displayName}
               </span>
             </div>
           </div>
